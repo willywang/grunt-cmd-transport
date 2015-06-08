@@ -24,6 +24,9 @@ module.exports = function(grunt) {
       idleading: '',
       alias: {},
 
+      // for rename id
+      renameId: false,
+
       // create a debug file or not
       debug: true,
 

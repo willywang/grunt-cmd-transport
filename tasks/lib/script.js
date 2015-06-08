@@ -15,7 +15,6 @@ exports.init = function(grunt) {
   function jsParser(fileObj, options) {
     grunt.log.verbose.writeln('Transport ' + fileObj.src + ' -> ' + fileObj.dest);
 
-
     // cache every filepath content to generate hash
     //
     // {
@@ -32,15 +31,14 @@ exports.init = function(grunt) {
     var fileCache = {};
 
     var file = getFileInfo(path.join(process.cwd(), fileObj.src));
-
     if (!file) return;
 
     var data, filepath;
-    if (!options.hash) {
 
+    if (!options.hash) {
       // create original file, xxx.js
       data = ast.modify(file.contents, {
-        id: unixy(options.idleading) + getId(file),
+        id: unixy(options.idleading) + getId(file, options.renameId),
         dependencies: getDeps(file),
         require: function(v) {
           // ignore when deps is specified by developer
@@ -54,7 +52,7 @@ exports.init = function(grunt) {
       // create file with hash, xxx-2cio56s.js
       var hash = file.hash;
       data = ast.modify(file.contents, {
-        id: unixy(options.idleading) + getId(file) + '-' + hash,
+        id: unixy(options.idleading) + getId(file, options.renameId) + '-' + hash,
         dependencies: getDeps(file, addHash),
         require: function(v) {
           // ignore when deps is specified by developer
@@ -76,8 +74,12 @@ exports.init = function(grunt) {
       writeFile(data, addDebug(filepath));
     }
 
-    function getId(file) {
-      return file.id || unixy(fileObj.name.replace(/\.js$/, ''));
+    function getId(file, renameId) {
+      var id = file.id || unixy(fileObj.name.replace(/\.js$/, ''));
+      if(renameId && typeof renameId == 'function'){
+        id = renameId(id);
+      }
+      return id;
     }
 
     function getDeps(file, fn) {
@@ -181,7 +183,6 @@ exports.init = function(grunt) {
 
     function parseModuleDependencies(id) {
       var alias = iduri.parseAlias(options, id);
-
       if (iduri.isAlias(options, id) && alias === id) {
         // usually this is "$"
         return [{id: id}];
@@ -204,16 +205,14 @@ exports.init = function(grunt) {
           return true;
         }
       });
-
       if (!fpath) {
         grunt.fail.warn('can\'t find module ' + alias);
         return [{id: id}];
       }
 
       var file = getFileInfo(fpath);
-
       if (!file) {
-        return [{id: id}];
+        return [{id: id, path: fpath}];
       }
 
       // don't parse no javascript dependencies
@@ -308,6 +307,7 @@ exports.init = function(grunt) {
             if (item.relative) item.id = relative(path, item.path);
           })
           .value();
+
         grunt.log.verbose.writeln(deps.length ?
           'found dependencies ' + deps : 'found no dependencies');
       }
